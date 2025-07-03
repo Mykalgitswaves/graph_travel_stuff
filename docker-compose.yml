@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  memgraph:
+    image: memgraph/memgraph-mage:latest
+    ports:
+      - "7687:7687" # Only accessible from ma local machine
+      - "7444:7444"
+    volumes:
+      - mg_lib:/var/lib/memgraph
+      - ./db/init:/init
+    environment:
+      - MEMGRAPH=--storage_mode=on_disk
+      - MEMGRAPH_USER=memgraphmikey
+      - MEMGRAPH_PASSWORD=memgraphmikey
+      - MEMGRAPH_DATABASE=memgraph
+    networks:
+      - backend
+
+  lab:
+    image: memgraph/lab:latest
+    container_name: memgraph-lab
+    ports:
+      - "3000:3000" # Only accessible from ma local machine
+    depends_on:
+      - memgraph
+    environment:
+      - QUICK_CONNECT_MG_HOST=bolt://memgraph:7687
+      - QUICK_CONNECT_MG_USER=memgraphmikey
+      - QUICK_CONNECT_MG_PASSWORD=memgraphmikey
+    restart: on-failure
+    networks:
+      - backend
+        
+  redis:
+    image: redis:7.4.2
+    ports:
+      - "6379:6379" # Optional, only expose if you're using Redis from host I have no idea what that means
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    networks:
+      - backend
+
+  qdrant:
+    container_name: qdrant
+    image: qdrant/qdrant:v1.14.0
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT_API_KEY=memgraphmikey
+    networks:
+      - backend
+
+volumes:
+  mg_lib:
+  redis_data:
+  qdrant_storage:
+
+networks:
+  backend:
+    driver: bridge
